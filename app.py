@@ -31,22 +31,38 @@ def inject_styles():
         """
         <style>
             :root {
-                --bg-main: #eef4ea;
-                --bg-accent: #dcebd2;
-                --text-main: #162218;
-                --panel: #f8fbf6;
-                --primary: #1f6b45;
-                --success: #1c8f5b;
-                --danger: #c43a3a;
-                --border: #d6e3d2;
+                --bg-main: #f0f4f8;
+                --bg-accent: #e2e8f0;
+                --text-main: #1a202c;
+                --text-sub: #4a5568;
+                --panel: #ffffff;
+                --primary: #4361ee;
+                --primary-light: #6b82f7;
+                --success: #0ea575;
+                --danger: #ef4444;
+                --warning: #f59e0b;
+                --border: #e2e8f0;
+                --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+                --shadow-md: 0 4px 14px rgba(67,97,238,.10), 0 2px 6px rgba(0,0,0,.04);
+                --shadow-lg: 0 10px 28px rgba(67,97,238,.12), 0 4px 10px rgba(0,0,0,.04);
+                --radius: 14px;
                 color-scheme: light;
+            }
+
+            /* --- iOS safe-area & touch optimisation --- */
+            html, body {
+                -webkit-text-size-adjust: 100%;
+                -webkit-tap-highlight-color: transparent;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior-y: none;
             }
 
             .stApp {
                 background:
-                    radial-gradient(circle at 8% 10%, rgba(190, 218, 173, 0.42) 0%, rgba(190, 218, 173, 0) 38%),
-                    radial-gradient(circle at 88% 14%, rgba(208, 225, 190, 0.36) 0%, rgba(208, 225, 190, 0) 42%),
-                    linear-gradient(180deg, var(--bg-main) 0%, var(--bg-accent) 100%);
+                    radial-gradient(circle at 12% 8%, rgba(67,97,238,.07) 0%, transparent 40%),
+                    radial-gradient(circle at 85% 15%, rgba(99,179,237,.08) 0%, transparent 45%),
+                    radial-gradient(circle at 50% 90%, rgba(139,92,246,.05) 0%, transparent 35%),
+                    linear-gradient(170deg, var(--bg-main) 0%, #dfe6f0 50%, var(--bg-accent) 100%);
                 color: var(--text-main);
             }
 
@@ -59,31 +75,49 @@ def inject_styles():
                 padding-bottom: 1.5rem;
             }
 
+            /* ---------- Hero Banner ---------- */
             .hero {
-                background: linear-gradient(120deg, #1e5f3f 0%, #3f8a5f 55%, #57a16f 100%);
-                color: white;
-                border-radius: 16px;
-                padding: 1.15rem 1.25rem;
-                margin-bottom: 1rem;
-                border: 1px solid rgba(255, 255, 255, 0.22);
-                box-shadow: 0 10px 24px rgba(15, 44, 23, 0.14);
+                background: linear-gradient(135deg, #4361ee 0%, #3a56d4 40%, #7c3aed 100%);
+                color: #ffffff;
+                border-radius: var(--radius);
+                padding: 1.3rem 1.4rem;
+                margin-bottom: 1.1rem;
+                border: 1px solid rgba(255,255,255,.18);
+                box-shadow: var(--shadow-lg);
+                position: relative;
+                overflow: hidden;
+            }
+
+            .hero::before {
+                content: "";
+                position: absolute;
+                top: -30%;
+                right: -10%;
+                width: 220px;
+                height: 220px;
+                background: radial-gradient(circle, rgba(255,255,255,.12) 0%, transparent 70%);
+                border-radius: 50%;
+                pointer-events: none;
             }
 
             .hero h1 {
-                margin: 0 0 .25rem 0;
-                font-size: 1.55rem;
-                font-weight: 700;
-                letter-spacing: .2px;
+                margin: 0 0 .3rem 0;
+                font-size: 1.6rem;
+                font-weight: 800;
+                letter-spacing: .3px;
+                text-shadow: 0 1px 2px rgba(0,0,0,.12);
             }
 
             .hero p {
                 margin: 0;
-                opacity: .93;
-                font-size: .94rem;
+                opacity: .92;
+                font-size: .95rem;
+                font-weight: 400;
             }
 
+            /* ---------- Sidebar ---------- */
             [data-testid="stSidebar"] {
-                background: linear-gradient(180deg, #143923 0%, #1f4e31 100%);
+                background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
             }
 
             [data-testid="stSidebar"] label,
@@ -92,56 +126,113 @@ def inject_styles():
             [data-testid="stSidebar"] h2,
             [data-testid="stSidebar"] h3,
             [data-testid="stSidebar"] span {
-                color: #f1f7ef !important;
+                color: #e2e8f0 !important;
+            }
+
+            [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] b {
+                color: #93c5fd !important;
             }
 
             .side-card {
-                background: rgba(255, 255, 255, 0.1);
-                border: 1px solid rgba(255, 255, 255, 0.22);
+                background: rgba(255,255,255,.07);
+                border: 1px solid rgba(255,255,255,.14);
                 border-radius: 12px;
-                padding: .8rem .9rem;
-                margin-top: .6rem;
-                font-size: .9rem;
-                line-height: 1.45;
+                padding: .85rem 1rem;
+                margin-top: .7rem;
+                font-size: .88rem;
+                line-height: 1.5;
+                backdrop-filter: blur(6px);
+                -webkit-backdrop-filter: blur(6px);
+                color: #cbd5e1;
             }
 
+            /* ---------- Section Titles ---------- */
             .section-title {
-                margin: .2rem 0 .35rem 0;
-                font-size: 1.06rem;
-                font-weight: 650;
+                margin: .2rem 0 .4rem 0;
+                font-size: 1.08rem;
+                font-weight: 700;
                 color: var(--text-main);
             }
 
+            /* ---------- Radio Buttons ---------- */
             .main [data-testid="stRadio"] div[role="radiogroup"] {
                 gap: .75rem;
             }
 
+            /* ---------- Metric Cards ---------- */
             [data-testid="stMetric"] {
                 background: var(--panel);
                 border: 1px solid var(--border);
-                border-radius: 12px;
-                padding: .5rem .65rem;
+                border-radius: var(--radius);
+                padding: .6rem .75rem;
+                box-shadow: var(--shadow-sm);
+                transition: box-shadow .2s ease, transform .2s ease;
             }
 
+            [data-testid="stMetric"]:hover {
+                box-shadow: var(--shadow-md);
+                transform: translateY(-1px);
+            }
+
+            [data-testid="stMetricValue"] {
+                color: var(--primary) !important;
+                font-weight: 700;
+            }
+
+            /* ---------- Buttons ---------- */
+            .stButton > button {
+                border-radius: 10px;
+                font-weight: 600;
+                transition: all .2s ease;
+            }
+
+            .stButton > button:active {
+                transform: scale(.97);
+            }
+
+            /* ---------- Expander ---------- */
+            [data-testid="stExpander"] {
+                background: var(--panel);
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                box-shadow: var(--shadow-sm);
+            }
+
+            /* ---------- Progress Bar ---------- */
+            .stProgress > div > div {
+                border-radius: 8px;
+            }
+
+            /* ---------- Plotly Charts ---------- */
+            [data-testid="stPlotlyChart"] {
+                border-radius: var(--radius);
+                overflow: hidden;
+                box-shadow: var(--shadow-sm);
+            }
+
+            /* ========== Mobile (max-width: 768px) ========== */
             @media (max-width: 768px) {
                 .block-container {
                     padding-top: .8rem;
-                    padding-left: .7rem;
-                    padding-right: .7rem;
+                    padding-left: .65rem;
+                    padding-right: .65rem;
+                    padding-bottom: calc(.8rem + env(safe-area-inset-bottom, 0px));
                 }
 
                 .hero {
                     border-radius: 12px;
-                    padding: .95rem 1rem;
+                    padding: 1rem 1.05rem;
                 }
 
+                .hero::before { display: none; }
+
                 .hero h1 {
-                    font-size: 1.28rem;
-                    line-height: 1.2;
+                    font-size: 1.3rem;
+                    line-height: 1.25;
                 }
 
                 .hero p {
-                    font-size: .9rem;
+                    font-size: .88rem;
                 }
 
                 .main [data-testid="stRadio"] div[role="radiogroup"] {
@@ -149,8 +240,54 @@ def inject_styles():
                     align-items: flex-start;
                     gap: .45rem;
                 }
+
+                [data-testid="stMetric"] {
+                    padding: .45rem .55rem;
+                    border-radius: 10px;
+                }
+
+                /* Larger touch targets on mobile */
+                .stButton > button,
+                [data-testid="stRadio"] label {
+                    min-height: 44px;
+                }
+
+                /* Camera / file-upload input full-width */
+                [data-testid="stFileUploader"],
+                [data-testid="stCameraInput"] {
+                    width: 100% !important;
+                }
+
+                [data-testid="stCameraInput"] video,
+                [data-testid="stCameraInput"] img {
+                    border-radius: 10px;
+                    max-height: 55vh;
+                    object-fit: contain;
+                }
+            }
+
+            /* ========== Small phones (max-width: 480px) ========== */
+            @media (max-width: 480px) {
+                .hero h1 { font-size: 1.15rem; }
+                .hero p  { font-size: .82rem; }
+
+                [data-testid="stMetric"] {
+                    padding: .35rem .45rem;
+                }
+
+                .section-title { font-size: .98rem; }
+            }
+
+            /* iOS standalone (Add to Home Screen) */
+            @media (display-mode: standalone) {
+                .block-container {
+                    padding-top: calc(.8rem + env(safe-area-inset-top, 0px));
+                }
             }
         </style>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         """,
         unsafe_allow_html=True,
     )
@@ -572,11 +709,12 @@ else:
                 y="compliance",
                 labels={"compliance": "Compliance (%)", "timestamp": "Time"},
             )
-            fig.update_traces(line_color="#11a36a", line_width=3)
+            fig.update_traces(line_color="#4361ee", line_width=3)
             fig.update_layout(
                 margin=dict(l=10, r=10, t=20, b=0),
-                plot_bgcolor="white",
-                paper_bgcolor="white",
+                plot_bgcolor="#ffffff",
+                paper_bgcolor="#ffffff",
+                font_color="#1a202c",
             )
             st.plotly_chart(fig, use_container_width=True)
 
@@ -587,7 +725,7 @@ else:
                     go.Pie(
                         labels=["With Mask", "Without Mask"],
                         values=[total_with_mask, total_without_mask],
-                        marker_colors=["#11a36a", "#d64545"],
+                        marker_colors=["#4361ee", "#ef4444"],
                         hole=0.45,
                     )
                 ]
@@ -614,13 +752,14 @@ else:
             x="timestamp",
             y="Count",
             color="Status",
-            color_discrete_map={"With Mask": "#11a36a", "Without Mask": "#d64545"},
+            color_discrete_map={"With Mask": "#4361ee", "Without Mask": "#ef4444"},
             barmode="group",
         )
         fig.update_layout(
             margin=dict(l=10, r=10, t=20, b=0),
-            plot_bgcolor="white",
-            paper_bgcolor="white",
+            plot_bgcolor="#ffffff",
+            paper_bgcolor="#ffffff",
+            font_color="#1a202c",
         )
         st.plotly_chart(fig, use_container_width=True)
 
