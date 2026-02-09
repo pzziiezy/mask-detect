@@ -9,13 +9,15 @@ from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 
+WEBRTC_IMPORT_ERROR = ""
 try:
     import av
     from streamlit_webrtc import WebRtcMode, webrtc_streamer
 
     WEBRTC_AVAILABLE = True
-except Exception:
+except Exception as exc:
     WEBRTC_AVAILABLE = False
+    WEBRTC_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
 
 st.set_page_config(
     page_title="Mask Detection Dashboard",
@@ -396,17 +398,20 @@ if page == PAGE_DETECTION:
             '<div class="section-title">Real-time Webcam Detection</div>',
             unsafe_allow_html=True,
         )
-        st.caption("Use `Live Stream` first. If camera fails on mobile/browser, switch to `Capture` mode.")
+        if WEBRTC_AVAILABLE:
+            st.caption("Use `Live Stream` first. If camera fails on mobile/browser, switch to `Capture` mode.")
+            camera_mode_options = ["Live Stream (WebRTC)", "Capture (Mobile Safe)"]
+        else:
+            st.caption("WebRTC is unavailable in this deployment. Use `Capture (Mobile Safe)` now.")
+            camera_mode_options = ["Capture (Mobile Safe)"]
 
-        camera_mode = st.radio(
-            "Camera Mode",
-            ["Live Stream (WebRTC)", "Capture (Mobile Safe)"],
-            horizontal=True,
-        )
+        camera_mode = st.radio("Camera Mode", camera_mode_options, horizontal=True)
 
         if camera_mode == "Live Stream (WebRTC)":
             if not WEBRTC_AVAILABLE:
-                st.error("WebRTC dependency is missing. Install `streamlit-webrtc` and redeploy.")
+                st.error("WebRTC dependency is missing. Use `Capture (Mobile Safe)` now and redeploy.")
+                if WEBRTC_IMPORT_ERROR:
+                    st.caption(f"Import detail: {WEBRTC_IMPORT_ERROR}")
             else:
                 webrtc_ctx = webrtc_streamer(
                     key="mask-detection-webrtc",

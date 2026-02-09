@@ -6,4 +6,3 @@ pandas
 numpy
 pillow
 streamlit-webrtc
-av
