@@ -28,10 +28,15 @@ def inject_styles():
                 --success: #11a36a;
                 --danger: #d64545;
                 --border: #e6e9f0;
+                color-scheme: light;
             }
 
             .stApp {
                 background: radial-gradient(circle at top right, #eaf2ff, var(--bg) 45%);
+            }
+
+            .main, .main .block-container {
+                color: var(--text);
             }
 
             .block-container {
@@ -94,6 +99,48 @@ def inject_styles():
                 font-size: 1.06rem;
                 font-weight: 650;
                 color: var(--text);
+            }
+
+            .main [data-testid="stWidgetLabel"] p,
+            .main [data-testid="stMarkdownContainer"] p,
+            .main [data-testid="stMarkdownContainer"] li,
+            .main [data-testid="stExpander"] summary span,
+            .main [data-testid="stRadio"] label p,
+            .main [data-testid="stCheckbox"] label p,
+            .main .stCaption {
+                color: var(--text) !important;
+            }
+
+            .main [data-testid="stRadio"] div[role="radiogroup"] {
+                gap: .75rem;
+            }
+
+            @media (max-width: 768px) {
+                .block-container {
+                    padding-top: .8rem;
+                    padding-left: .7rem;
+                    padding-right: .7rem;
+                }
+
+                .hero {
+                    border-radius: 12px;
+                    padding: .95rem 1rem;
+                }
+
+                .hero h1 {
+                    font-size: 1.95rem;
+                    line-height: 1.2;
+                }
+
+                .hero p {
+                    font-size: .98rem;
+                }
+
+                .main [data-testid="stRadio"] div[role="radiogroup"] {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: .45rem;
+                }
             }
         </style>
         """,
