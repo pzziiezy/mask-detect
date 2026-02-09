@@ -1,13 +1,34 @@
 import streamlit as st
 import cv2
 import numpy as np
-from tensorflow import keras
+import os
+import sys
 import time
 import threading
 import pandas as pd
 from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
+
+TF_AVAILABLE = False
+TF_IMPORT_ERROR = ""
+keras = None
+
+if sys.version_info >= (3, 13):
+    TF_IMPORT_ERROR = (
+        f"Python {sys.version_info.major}.{sys.version_info.minor} detected. "
+        "TensorFlow-backed model inference is disabled on this Python version."
+    )
+else:
+    try:
+        # Use deterministic CPU path to avoid oneDNN-related startup instability.
+        os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
+        from tensorflow import keras as tf_keras
+
+        keras = tf_keras
+        TF_AVAILABLE = True
+    except Exception as exc:
+        TF_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
 
 WEBRTC_IMPORT_ERROR = ""
 try:
@@ -317,6 +338,8 @@ def play_sound(sound_type):
 
 @st.cache_resource
 def load_model():
+    if not TF_AVAILABLE:
+        return None
     return keras.models.load_model("models/mask_detector.h5")
 
 
@@ -425,6 +448,15 @@ model = load_model()
 face_cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 )
+
+if model is None:
+    st.error(
+        "Model initialization failed. "
+        f"{TF_IMPORT_ERROR or 'TensorFlow is unavailable.'} "
+        "On Streamlit Community Cloud, deploy with Python 3.11 or 3.12 from "
+        "Advanced settings, then redeploy."
+    )
+    st.stop()
 
 PAGE_DETECTION = "Detection"
 PAGE_REPORTS = "Reports"
