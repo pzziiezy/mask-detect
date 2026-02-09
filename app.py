@@ -3,10 +3,19 @@ import cv2
 import numpy as np
 from tensorflow import keras
 import time
+import threading
 import pandas as pd
 from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
+
+try:
+    import av
+    from streamlit_webrtc import WebRtcMode, webrtc_streamer
+
+    WEBRTC_AVAILABLE = True
+except Exception:
+    WEBRTC_AVAILABLE = False
 
 st.set_page_config(
     page_title="Mask Detection Dashboard",
@@ -21,7 +30,6 @@ def inject_styles():
         <style>
             :root {
                 --bg: #f5f7fb;
-                --card: #ffffff;
                 --text: #1f2937;
                 --muted: #6b7280;
                 --primary: #0f4c81;
@@ -67,20 +75,16 @@ def inject_styles():
                 font-size: .94rem;
             }
 
-            .subtle {
-                color: var(--muted);
-                font-size: .92rem;
-            }
-
             [data-testid="stSidebar"] {
                 background: linear-gradient(180deg, #0b1f35 0%, #15385d 100%);
             }
 
-            [data-testid="stSidebar"] * {
-                color: #e8edf6 !important;
-            }
-
-            [data-testid="stSidebar"] .stSlider label {
+            [data-testid="stSidebar"] label,
+            [data-testid="stSidebar"] p,
+            [data-testid="stSidebar"] h1,
+            [data-testid="stSidebar"] h2,
+            [data-testid="stSidebar"] h3,
+            [data-testid="stSidebar"] span {
                 color: #f3f6fb !important;
             }
 
@@ -106,6 +110,7 @@ def inject_styles():
             .main [data-testid="stMarkdownContainer"] li,
             .main [data-testid="stExpander"] summary span,
             .main [data-testid="stRadio"] label p,
+            .main [data-testid="stFileUploader"] [data-testid="stMarkdownContainer"] p,
             .main [data-testid="stCheckbox"] label p,
             .main .stCaption {
                 color: var(--text) !important;
@@ -222,10 +227,47 @@ def detect_mask(image, threshold=0.3):
     return image, results, len(faces)
 
 
+if WEBRTC_AVAILABLE:
+    class MaskVideoProcessor:
+        def __init__(self):
+            self.lock = threading.Lock()
+            self.threshold = st.session_state.get("threshold", 0.3)
+            self.latest_stats = {
+                "num_faces": 0,
+                "with_mask": 0,
+                "without_mask": 0,
+            }
+
+        def recv(self, frame):
+            image = frame.to_ndarray(format="bgr24")
+            result_frame, results, num_faces = detect_mask(image, self.threshold)
+            with_mask = sum(1 for r in results if r["has_mask"])
+            without_mask = num_faces - with_mask
+
+            with self.lock:
+                self.latest_stats = {
+                    "num_faces": num_faces,
+                    "with_mask": with_mask,
+                    "without_mask": without_mask,
+                }
+
+            return av.VideoFrame.from_ndarray(result_frame, format="bgr24")
+
+        def get_stats(self):
+            with self.lock:
+                return dict(self.latest_stats)
+
+
 inject_styles()
 
 if "detection_history" not in st.session_state:
     st.session_state.detection_history = []
+
+if "webcam_last_sound_time" not in st.session_state:
+    st.session_state.webcam_last_sound_time = 0.0
+
+if "webcam_last_history_time" not in st.session_state:
+    st.session_state.webcam_last_history_time = 0.0
 
 model = load_model()
 face_cascade = cv2.CascadeClassifier(
@@ -241,6 +283,7 @@ st.sidebar.markdown("## Control Panel")
 page = st.sidebar.radio("Navigate", [PAGE_DETECTION, PAGE_REPORTS])
 st.sidebar.markdown("---")
 threshold = st.sidebar.slider("Detection Threshold", 0.0, 1.0, 0.3, 0.05)
+st.session_state.threshold = threshold
 st.sidebar.markdown(
     """
     <div class="side-card">
@@ -264,12 +307,12 @@ if page == PAGE_DETECTION:
         unsafe_allow_html=True,
     )
 
-    with st.expander("คู่มือการใช้งาน", expanded=False):
+    with st.expander("How to use", expanded=False):
         st.markdown(
             """
-            1. เลือกโหมด `Upload Image` หรือ `Webcam (Real-time)`.
-            2. ปรับ `Detection Threshold` ที่แถบด้านซ้ายตามความเข้มงวดที่ต้องการ.
-            3. ระบบจะแสดงผลตรวจจับพร้อมสรุปสถิติ และบันทึกลงรายงานอัตโนมัติ.
+            1. Select `Upload Image` or `Webcam (Real-time)`.
+            2. Adjust `Detection Threshold` in the left panel.
+            3. System displays detections and logs results to reports automatically.
             """
         )
 
@@ -281,7 +324,7 @@ if page == PAGE_DETECTION:
 
     if detection_method == MODE_UPLOAD:
         st.markdown('<div class="section-title">Upload Image</div>', unsafe_allow_html=True)
-        st.caption("รองรับไฟล์: JPG, JPEG, PNG")
+        st.caption("Supported: JPG, JPEG, PNG")
         uploaded_file = st.file_uploader("Choose an image", type=["jpg", "jpeg", "png"])
 
         if uploaded_file is not None:
@@ -340,51 +383,29 @@ if page == PAGE_DETECTION:
             '<div class="section-title">Real-time Webcam Detection</div>',
             unsafe_allow_html=True,
         )
-        st.caption("ต้องอนุญาตสิทธิ์การใช้งานกล้องในเบราว์เซอร์")
+        st.caption("Browser webcam mode for desktop/mobile (requires camera permission)")
 
-        run = st.checkbox("Start Webcam")
-        frame_window = st.image([])
-        stats_placeholder = st.empty()
-        alert_placeholder = st.empty()
+        if not WEBRTC_AVAILABLE:
+            st.error("WebRTC dependency is missing. Install `streamlit-webrtc` and redeploy.")
+        else:
+            webrtc_ctx = webrtc_streamer(
+                key="mask-detection-webrtc",
+                mode=WebRtcMode.SENDRECV,
+                media_stream_constraints={"video": True, "audio": False},
+                video_processor_factory=MaskVideoProcessor,
+                async_processing=True,
+            )
 
-        if run:
-            cap = cv2.VideoCapture(0)
-            last_sound_time = time.time()
-            sound_cooldown = 3
+            stats_placeholder = st.empty()
+            alert_placeholder = st.empty()
 
-            while run:
-                ret, frame = cap.read()
-                if not ret:
-                    st.error("Cannot access webcam.")
-                    break
-
-                result_frame, results, num_faces = detect_mask(frame, threshold)
-                current_time = time.time()
-
-                if results and (current_time - last_sound_time) >= sound_cooldown:
-                    without_mask = sum(1 for r in results if not r["has_mask"])
-                    if without_mask > 0:
-                        play_sound("warning")
-                    else:
-                        play_sound("success")
-                    last_sound_time = current_time
-
-                    with_mask = sum(1 for r in results if r["has_mask"])
-                    st.session_state.detection_history.append(
-                        {
-                            "timestamp": datetime.now(),
-                            "total_faces": num_faces,
-                            "with_mask": with_mask,
-                            "without_mask": without_mask,
-                            "method": "Webcam",
-                        }
-                    )
-
-                frame_window.image(cv2.cvtColor(result_frame, cv2.COLOR_BGR2RGB))
-
-                if results:
-                    with_mask = sum(1 for r in results if r["has_mask"])
-                    without_mask = num_faces - with_mask
+            if webrtc_ctx.state.playing and webrtc_ctx.video_processor:
+                while webrtc_ctx.state.playing:
+                    stats = webrtc_ctx.video_processor.get_stats()
+                    num_faces = stats["num_faces"]
+                    with_mask = stats["with_mask"]
+                    without_mask = stats["without_mask"]
+                    compliance = (with_mask / num_faces * 100) if num_faces > 0 else 0
 
                     with stats_placeholder.container():
                         c1, c2, c3, c4 = st.columns(4)
@@ -395,18 +416,38 @@ if page == PAGE_DETECTION:
                         with c3:
                             st.metric("Without Mask", without_mask)
                         with c4:
-                            compliance = (with_mask / num_faces * 100) if num_faces > 0 else 0
                             st.metric("Compliance", f"{compliance:.0f}%")
 
+                    if num_faces > 0:
+                        current_time = time.time()
+                        if current_time - st.session_state.webcam_last_sound_time >= 3:
+                            if without_mask > 0:
+                                play_sound("warning")
+                            else:
+                                play_sound("success")
+                            st.session_state.webcam_last_sound_time = current_time
+
+                        if current_time - st.session_state.webcam_last_history_time >= 3:
+                            st.session_state.detection_history.append(
+                                {
+                                    "timestamp": datetime.now(),
+                                    "total_faces": num_faces,
+                                    "with_mask": with_mask,
+                                    "without_mask": without_mask,
+                                    "method": "Webcam",
+                                }
+                            )
+                            st.session_state.webcam_last_history_time = current_time
+
                     with alert_placeholder:
-                        if without_mask > 0:
+                        if num_faces == 0:
+                            st.info("No face detected.")
+                        elif without_mask > 0:
                             st.error("Warning: No mask detected.")
                         else:
                             st.success("All wearing masks.")
 
-                time.sleep(0.03)
-
-            cap.release()
+                    time.sleep(0.3)
 
 else:
     st.markdown(
