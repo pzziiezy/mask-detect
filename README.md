@@ -9,3 +9,5 @@ Face mask detection using CNN.
 Notes:
 - TensorFlow inference is disabled automatically on Python `3.13+` to avoid runtime crashes.
 - `requirements.txt` installs TensorFlow only for Python versions below `3.13`.
+- On Streamlit Community Cloud, TensorFlow inference is disabled by default to prevent segfaults at startup.
+- To force-enable inference, add environment variable `ENABLE_TF_INFERENCE=1` in app settings and redeploy.

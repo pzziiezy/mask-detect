@@ -13,8 +13,19 @@ import plotly.graph_objects as go
 TF_AVAILABLE = False
 TF_IMPORT_ERROR = ""
 keras = None
+RUNNING_ON_STREAMLIT_CLOUD = os.getenv("USER") == "appuser" and os.path.exists("/app")
+ENABLE_TF_INFERENCE = os.getenv("ENABLE_TF_INFERENCE")
+if ENABLE_TF_INFERENCE is None:
+    ENABLE_TF_INFERENCE = not RUNNING_ON_STREAMLIT_CLOUD
+else:
+    ENABLE_TF_INFERENCE = ENABLE_TF_INFERENCE.lower() in {"1", "true", "yes", "on"}
 
-if sys.version_info >= (3, 13):
+if not ENABLE_TF_INFERENCE:
+    TF_IMPORT_ERROR = (
+        "TensorFlow inference is disabled for this runtime "
+        "(set ENABLE_TF_INFERENCE=1 to force-enable)."
+    )
+elif sys.version_info >= (3, 13):
     TF_IMPORT_ERROR = (
         f"Python {sys.version_info.major}.{sys.version_info.minor} detected. "
         "TensorFlow-backed model inference is disabled on this Python version."
