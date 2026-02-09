@@ -1,0 +1,14 @@
+# Python
+*.pyc
+__pycache__/
+venv/
+.venv/
+*.h5
+
+# Data folders (ไม่ upload รูปภาพ)
+data/
+archive.zip
+
+# OS
+.DS_Store
+Thumbs.db
