@@ -347,11 +347,18 @@ def play_sound(sound_type):
         )
 
 
+import tflite_runtime.interpreter as tflite
+
 @st.cache_resource
 def load_model():
-    if not TF_AVAILABLE:
+    try:
+        # โหลดโมเดลผ่าน TFLite Interpreter
+        interpreter = tflite.Interpreter(model_path="models/mask_detector.tflite")
+        interpreter.allocate_tensors()
+        return interpreter
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
         return None
-    return keras.models.load_model("models/mask_detector.h5")
 
 
 def detect_mask(image, threshold=0.3):
