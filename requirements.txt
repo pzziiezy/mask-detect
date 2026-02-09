@@ -1,6 +1,6 @@
 streamlit
 opencv-python-headless
-tensorflow-cpu
+tflite-runtime
 numpy<2.0.0
 plotly
 pandas
