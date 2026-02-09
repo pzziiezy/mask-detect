@@ -29,22 +29,27 @@ def inject_styles():
         """
         <style>
             :root {
-                --bg: #f5f7fb;
-                --text: #1f2937;
-                --muted: #6b7280;
-                --primary: #0f4c81;
-                --success: #11a36a;
-                --danger: #d64545;
-                --border: #e6e9f0;
+                --bg-main: #eef4ea;
+                --bg-accent: #dcebd2;
+                --text-main: #162218;
+                --panel: #f8fbf6;
+                --primary: #1f6b45;
+                --success: #1c8f5b;
+                --danger: #c43a3a;
+                --border: #d6e3d2;
                 color-scheme: light;
             }
 
             .stApp {
-                background: radial-gradient(circle at top right, #eaf2ff, var(--bg) 45%);
+                background:
+                    radial-gradient(circle at 8% 10%, rgba(190, 218, 173, 0.42) 0%, rgba(190, 218, 173, 0) 38%),
+                    radial-gradient(circle at 88% 14%, rgba(208, 225, 190, 0.36) 0%, rgba(208, 225, 190, 0) 42%),
+                    linear-gradient(180deg, var(--bg-main) 0%, var(--bg-accent) 100%);
+                color: var(--text-main);
             }
 
             .main, .main .block-container {
-                color: var(--text);
+                color: var(--text-main);
             }
 
             .block-container {
@@ -53,13 +58,13 @@ def inject_styles():
             }
 
             .hero {
-                background: linear-gradient(120deg, #0f4c81 0%, #246eb9 100%);
+                background: linear-gradient(120deg, #1e5f3f 0%, #3f8a5f 55%, #57a16f 100%);
                 color: white;
                 border-radius: 16px;
                 padding: 1.15rem 1.25rem;
                 margin-bottom: 1rem;
-                border: 1px solid rgba(255, 255, 255, 0.2);
-                box-shadow: 0 10px 22px rgba(17, 24, 39, 0.14);
+                border: 1px solid rgba(255, 255, 255, 0.22);
+                box-shadow: 0 10px 24px rgba(15, 44, 23, 0.14);
             }
 
             .hero h1 {
@@ -76,7 +81,7 @@ def inject_styles():
             }
 
             [data-testid="stSidebar"] {
-                background: linear-gradient(180deg, #0b1f35 0%, #15385d 100%);
+                background: linear-gradient(180deg, #143923 0%, #1f4e31 100%);
             }
 
             [data-testid="stSidebar"] label,
@@ -85,12 +90,12 @@ def inject_styles():
             [data-testid="stSidebar"] h2,
             [data-testid="stSidebar"] h3,
             [data-testid="stSidebar"] span {
-                color: #f3f6fb !important;
+                color: #f1f7ef !important;
             }
 
             .side-card {
-                background: rgba(255, 255, 255, 0.08);
-                border: 1px solid rgba(255, 255, 255, 0.2);
+                background: rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.22);
                 border-radius: 12px;
                 padding: .8rem .9rem;
                 margin-top: .6rem;
@@ -102,22 +107,18 @@ def inject_styles():
                 margin: .2rem 0 .35rem 0;
                 font-size: 1.06rem;
                 font-weight: 650;
-                color: var(--text);
-            }
-
-            .main [data-testid="stWidgetLabel"] p,
-            .main [data-testid="stMarkdownContainer"] p,
-            .main [data-testid="stMarkdownContainer"] li,
-            .main [data-testid="stExpander"] summary span,
-            .main [data-testid="stRadio"] label p,
-            .main [data-testid="stFileUploader"] [data-testid="stMarkdownContainer"] p,
-            .main [data-testid="stCheckbox"] label p,
-            .main .stCaption {
-                color: var(--text) !important;
+                color: var(--text-main);
             }
 
             .main [data-testid="stRadio"] div[role="radiogroup"] {
                 gap: .75rem;
+            }
+
+            [data-testid="stMetric"] {
+                background: var(--panel);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: .5rem .65rem;
             }
 
             @media (max-width: 768px) {
@@ -133,12 +134,12 @@ def inject_styles():
                 }
 
                 .hero h1 {
-                    font-size: 1.95rem;
+                    font-size: 1.28rem;
                     line-height: 1.2;
                 }
 
                 .hero p {
-                    font-size: .98rem;
+                    font-size: .9rem;
                 }
 
                 .main [data-testid="stRadio"] div[role="radiogroup"] {
@@ -231,27 +232,39 @@ if WEBRTC_AVAILABLE:
     class MaskVideoProcessor:
         def __init__(self):
             self.lock = threading.Lock()
-            self.threshold = st.session_state.get("threshold", 0.3)
             self.latest_stats = {
                 "num_faces": 0,
                 "with_mask": 0,
                 "without_mask": 0,
+                "error": "",
             }
 
         def recv(self, frame):
-            image = frame.to_ndarray(format="bgr24")
-            result_frame, results, num_faces = detect_mask(image, self.threshold)
-            with_mask = sum(1 for r in results if r["has_mask"])
-            without_mask = num_faces - with_mask
+            try:
+                image = frame.to_ndarray(format="bgr24")
+                threshold = st.session_state.get("threshold", 0.3)
+                result_frame, results, num_faces = detect_mask(image, threshold)
+                with_mask = sum(1 for r in results if r["has_mask"])
+                without_mask = num_faces - with_mask
 
-            with self.lock:
-                self.latest_stats = {
-                    "num_faces": num_faces,
-                    "with_mask": with_mask,
-                    "without_mask": without_mask,
-                }
+                with self.lock:
+                    self.latest_stats = {
+                        "num_faces": num_faces,
+                        "with_mask": with_mask,
+                        "without_mask": without_mask,
+                        "error": "",
+                    }
 
-            return av.VideoFrame.from_ndarray(result_frame, format="bgr24")
+                return av.VideoFrame.from_ndarray(result_frame, format="bgr24")
+            except Exception as exc:
+                with self.lock:
+                    self.latest_stats = {
+                        "num_faces": 0,
+                        "with_mask": 0,
+                        "without_mask": 0,
+                        "error": str(exc),
+                    }
+                return frame
 
         def get_stats(self):
             with self.lock:
@@ -383,71 +396,132 @@ if page == PAGE_DETECTION:
             '<div class="section-title">Real-time Webcam Detection</div>',
             unsafe_allow_html=True,
         )
-        st.caption("Browser webcam mode for desktop/mobile (requires camera permission)")
+        st.caption("Use `Live Stream` first. If camera fails on mobile/browser, switch to `Capture` mode.")
 
-        if not WEBRTC_AVAILABLE:
-            st.error("WebRTC dependency is missing. Install `streamlit-webrtc` and redeploy.")
-        else:
-            webrtc_ctx = webrtc_streamer(
-                key="mask-detection-webrtc",
-                mode=WebRtcMode.SENDRECV,
-                media_stream_constraints={"video": True, "audio": False},
-                video_processor_factory=MaskVideoProcessor,
-                async_processing=True,
-            )
+        camera_mode = st.radio(
+            "Camera Mode",
+            ["Live Stream (WebRTC)", "Capture (Mobile Safe)"],
+            horizontal=True,
+        )
 
-            stats_placeholder = st.empty()
-            alert_placeholder = st.empty()
+        if camera_mode == "Live Stream (WebRTC)":
+            if not WEBRTC_AVAILABLE:
+                st.error("WebRTC dependency is missing. Install `streamlit-webrtc` and redeploy.")
+            else:
+                webrtc_ctx = webrtc_streamer(
+                    key="mask-detection-webrtc",
+                    mode=WebRtcMode.SENDRECV,
+                    media_stream_constraints={
+                        "video": {"facingMode": "user", "width": {"ideal": 640}, "height": {"ideal": 480}},
+                        "audio": False,
+                    },
+                    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+                    video_html_attrs={
+                        "autoPlay": True,
+                        "playsInline": True,
+                        "muted": True,
+                    },
+                    video_processor_factory=MaskVideoProcessor,
+                    async_processing=True,
+                )
 
-            if webrtc_ctx.state.playing and webrtc_ctx.video_processor:
-                while webrtc_ctx.state.playing:
+                stats_placeholder = st.empty()
+                alert_placeholder = st.empty()
+                stats = {
+                    "num_faces": 0,
+                    "with_mask": 0,
+                    "without_mask": 0,
+                    "error": "",
+                }
+
+                if webrtc_ctx.state.playing and webrtc_ctx.video_processor:
                     stats = webrtc_ctx.video_processor.get_stats()
-                    num_faces = stats["num_faces"]
-                    with_mask = stats["with_mask"]
-                    without_mask = stats["without_mask"]
-                    compliance = (with_mask / num_faces * 100) if num_faces > 0 else 0
 
-                    with stats_placeholder.container():
-                        c1, c2, c3, c4 = st.columns(4)
-                        with c1:
-                            st.metric("Faces", num_faces)
-                        with c2:
-                            st.metric("With Mask", with_mask)
-                        with c3:
-                            st.metric("Without Mask", without_mask)
-                        with c4:
-                            st.metric("Compliance", f"{compliance:.0f}%")
+                num_faces = stats["num_faces"]
+                with_mask = stats["with_mask"]
+                without_mask = stats["without_mask"]
+                compliance = (with_mask / num_faces * 100) if num_faces > 0 else 0
 
-                    if num_faces > 0:
-                        current_time = time.time()
-                        if current_time - st.session_state.webcam_last_sound_time >= 3:
-                            if without_mask > 0:
-                                play_sound("warning")
-                            else:
-                                play_sound("success")
-                            st.session_state.webcam_last_sound_time = current_time
+                with stats_placeholder.container():
+                    c1, c2, c3, c4 = st.columns(4)
+                    with c1:
+                        st.metric("Faces", num_faces)
+                    with c2:
+                        st.metric("With Mask", with_mask)
+                    with c3:
+                        st.metric("Without Mask", without_mask)
+                    with c4:
+                        st.metric("Compliance", f"{compliance:.0f}%")
 
-                        if current_time - st.session_state.webcam_last_history_time >= 3:
-                            st.session_state.detection_history.append(
-                                {
-                                    "timestamp": datetime.now(),
-                                    "total_faces": num_faces,
-                                    "with_mask": with_mask,
-                                    "without_mask": without_mask,
-                                    "method": "Webcam",
-                                }
-                            )
-                            st.session_state.webcam_last_history_time = current_time
+                if num_faces > 0:
+                    current_time = time.time()
+                    if current_time - st.session_state.webcam_last_history_time >= 3:
+                        st.session_state.detection_history.append(
+                            {
+                                "timestamp": datetime.now(),
+                                "total_faces": num_faces,
+                                "with_mask": with_mask,
+                                "without_mask": without_mask,
+                                "method": "Webcam",
+                            }
+                        )
+                        st.session_state.webcam_last_history_time = current_time
 
-                    with alert_placeholder:
-                        if num_faces == 0:
-                            st.info("No face detected.")
-                        elif without_mask > 0:
-                            st.error("Warning: No mask detected.")
-                        else:
-                            st.success("All wearing masks.")
+                with alert_placeholder:
+                    if stats["error"]:
+                        st.warning(f"Frame processing error: {stats['error']}")
+                    elif not webrtc_ctx.state.playing:
+                        st.info("Press `START` to activate webcam.")
+                    elif num_faces == 0:
+                        st.info("No face detected.")
+                    elif without_mask > 0:
+                        st.error("Warning: No mask detected.")
+                    else:
+                        st.success("All wearing masks.")
 
-                    time.sleep(0.3)
+                st.caption(
+                    "If webcam does not start on mobile: allow browser camera permission, use HTTPS URL, "
+                    "or switch to `Capture (Mobile Safe)`."
+                )
+        else:
+            captured_file = st.camera_input("Capture from mobile/desktop camera")
+            if captured_file is not None:
+                file_bytes = np.asarray(bytearray(captured_file.read()), dtype=np.uint8)
+                image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.caption("Captured")
+                    st.image(cv2.cvtColor(image, cv2.COLOR_BGR2RGB), use_container_width=True)
+
+                result_image, results, num_faces = detect_mask(image.copy(), threshold)
+                with_mask = sum(1 for r in results if r["has_mask"])
+                without_mask = num_faces - with_mask
+                compliance = (with_mask / num_faces * 100) if num_faces > 0 else 0
+
+                with col2:
+                    st.caption("Detected")
+                    st.image(cv2.cvtColor(result_image, cv2.COLOR_BGR2RGB), use_container_width=True)
+
+                st.session_state.detection_history.append(
+                    {
+                        "timestamp": datetime.now(),
+                        "total_faces": num_faces,
+                        "with_mask": with_mask,
+                        "without_mask": without_mask,
+                        "method": "Camera Capture",
+                    }
+                )
+
+                m1, m2, m3, m4 = st.columns(4)
+                with m1:
+                    st.metric("Faces", num_faces)
+                with m2:
+                    st.metric("With Mask", with_mask)
+                with m3:
+                    st.metric("Without Mask", without_mask)
+                with m4:
+                    st.metric("Compliance", f"{compliance:.1f}%")
 
 else:
     st.markdown(
