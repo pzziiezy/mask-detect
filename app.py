@@ -265,23 +265,23 @@ def realtime_camera_component():
                 }}
             }});
             
-            function updateStatus(result) {{
-                if (!result) return;
-                
-                let statusClass = 'status-good';
-                let statusText = '✅ All wearing masks!';
-                
-                if (result.without_mask > 0) {{
-                    statusClass = 'status-danger';
-                    statusText = `⚠️ ${result.without_mask} person(s) without mask detected!`;
-                }} else if (result.total_faces === 0) {{
-                    statusClass = 'status-warning';
-                    statusText = '👤 No faces detected';
-                }}
-                
-                statusDiv.className = 'status ' + statusClass;
-                statusDiv.innerHTML = statusText + `<br>👥 Total: ${result.total_faces} | ✅ With Mask: ${result.with_mask}`;
-            }}
+            function updateStatus(result) {
+    if (!result) return;
+    
+    let statusClass = 'status-good';
+    let statusText = '✅ All wearing masks!';
+    
+    if (result.without_mask > 0) {
+        statusClass = 'status-danger';
+        statusText = `⚠️ ${result.without_mask} person(s) without mask detected!`;
+    } else if (result.total_faces === 0) {
+        statusClass = 'status-warning';
+        statusText = '👤 No faces detected';
+    }
+    
+    statusDiv.className = 'status ' + statusClass;
+    statusDiv.innerHTML = statusText + `<br>👥 Total: ${result.total_faces} | ✅ With Mask: ${result.with_mask}`;
+}
         </script>
     </body>
     </html>
