@@ -7,6 +7,9 @@ import pandas as pd
 from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
+from PIL import Image
+import base64
+import io
 
 # ตั้งค่าหน้าเว็บ
 st.set_page_config(
@@ -18,6 +21,8 @@ st.set_page_config(
 # Initialize session state
 if 'detection_history' not in st.session_state:
     st.session_state.detection_history = []
+if 'camera_image' not in st.session_state:
+    st.session_state.camera_image = None
 
 # โหลดโมเดล
 @st.cache_resource
@@ -50,7 +55,8 @@ threshold = st.sidebar.slider("Detection Threshold", 0.0, 1.0, 0.3, 0.05)
 st.sidebar.markdown("---")
 st.sidebar.info(
     "**Model Accuracy:** 99.80%\n\n"
-    "**Dataset:** 12K Images"
+    "**Dataset:** 12K Images\n\n"
+    "📱 **Mobile Compatible**"
 )
 
 # ฟังก์ชันตรวจจับ
@@ -92,6 +98,108 @@ def detect_mask(image, threshold=0.3):
     
     return image, results, len(faces)
 
+# HTML Camera Component
+def camera_input_html():
+    html_code = """
+    <style>
+        .camera-container {
+            max-width: 100%;
+            text-align: center;
+            margin: 20px 0;
+        }
+        #video {
+            width: 100%;
+            max-width: 640px;
+            border: 3px solid #4CAF50;
+            border-radius: 10px;
+        }
+        .camera-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            font-size: 16px;
+            margin: 10px 2px;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+        }
+        .camera-btn:hover {
+            background-color: #45a049;
+        }
+        .stop-btn {
+            background-color: #f44336;
+        }
+        .stop-btn:hover {
+            background-color: #da190b;
+        }
+        #canvas {
+            display: none;
+        }
+    </style>
+    
+    <div class="camera-container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
+        <br>
+        <button class="camera-btn" onclick="startCamera()">📷 Start Camera</button>
+        <button class="camera-btn" onclick="capturePhoto()">📸 Capture Photo</button>
+        <button class="camera-btn stop-btn" onclick="stopCamera()">⏹️ Stop Camera</button>
+    </div>
+    
+    <script>
+        let stream = null;
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                video.srcObject = stream;
+                video.play();
+            } catch (error) {
+                alert('Camera access denied or not available: ' + error.message);
+            }
+        }
+        
+        function capturePhoto() {
+            if (!stream) {
+                alert('Please start the camera first!');
+                return;
+            }
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0);
+            
+            // Convert to base64
+            const imageData = canvas.toDataURL('image/jpeg');
+            
+            // Send to Streamlit
+            window.parent.postMessage({
+                type: 'streamlit:setComponentValue',
+                value: imageData
+            }, '*');
+        }
+        
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                stream = null;
+            }
+        }
+    </script>
+    """
+    return html_code
+
 # ===== PAGE: DETECTION =====
 if page == "🏠 Detection":
     st.title("😷 Face Mask Detection System")
@@ -106,35 +214,27 @@ if page == "🏠 Detection":
         1. เลือก "📷 Upload Image"
         2. คลิก "Browse files" เพื่อเลือกรูปภาพ
         3. รองรับไฟล์: JPG, JPEG, PNG
-        4. รอระบบตรวจจับ (1-2 วินาที)
-        5. ดูผลลัพธ์ทางขวา พร้อมสถิติด้านล่าง
         
-        #### 🎥 **โหมด Webcam แบบเรียลไทม์:**
-        1. เลือก "🎥 Webcam (Real-time)"
-        2. คลิกติ๊กถูก "Start Webcam"
-        3. อนุญาตการเข้าถึงกล้องเมื่อเบราว์เซอร์ถาม
-        4. ระบบจะตรวจจับอัตโนมัติ
-        5. ดูสถิติแบบเรียลไทม์ด้านล่างกล้อง
+        #### 📸 **โหมดถ่ายรูปด้วยกล้อง (Mobile & Desktop):**
+        1. เลือก "📸 Camera"
+        2. คลิก "Start Camera" เพื่อเปิดกล้อง
+        3. คลิก "Capture Photo" เพื่อถ่ายรูป
+        4. รอระบบตรวจจับ
+        5. คลิก "Stop Camera" เมื่อเสร็จ
         
         #### ⚙️ **การตั้งค่า:**
-        - **Detection Threshold** (แถบเลื่อน): 
+        - **Detection Threshold**: ปรับความแม่นยำ
           - ต่ำ (0.2-0.3) = ตรวจจับหน้ากากง่ายขึ้น
           - สูง (0.5-0.7) = ตรวจจับหน้ากากเข้มงวดขึ้น
-        
-        #### 📊 **ดูรายงาน:**
-        - คลิก "📊 Reports" ที่แถบด้านซ้าย
-        - ดูกราฟและสถิติการตรวจจับทั้งหมด
-        - คลิก "🗑️ Clear All History" เพื่อล้างข้อมูล
         
         #### 💡 **เคล็ดลับ:**
         - แสงสว่างดี = ตรวจจับแม่นยำขึ้น
         - หน้าตรงกล้อง = ตรวจจับง่ายขึ้น
-        - หน้ากากสีเข้ม = อาจต้องปรับ Threshold
         """)
     
     detection_method = st.radio(
         "Choose Detection Method:",
-        ["📷 Upload Image", "🎥 Webcam (Real-time)"],
+        ["📷 Upload Image", "📸 Camera"],
         horizontal=True
     )
     
@@ -199,17 +299,78 @@ if page == "🏠 Detection":
             elif num_faces > 0:
                 st.success("✅ All people are wearing masks!")
     
-    # ===== Webcam Mode =====
+    # ===== Camera Mode =====
     else:
-        st.header("🎥 Real-time Webcam Detection")
-        st.warning("⚠️ Webcam mode is not supported on Streamlit Cloud. Please run locally using: `streamlit run app.py`")
+        st.header("📸 Camera Detection")
+        st.info("📱 **Works on Mobile & Desktop!** Click 'Start Camera' then 'Capture Photo'")
         
-        st.info("""
-        **To use webcam detection:**
-        1. Download this code
-        2. Run locally: `streamlit run app.py`
-        3. Your browser will ask for camera permission
-        """)
+        # Camera Component
+        camera_input = st.camera_input("Take a photo", key="camera")
+        
+        if camera_input is not None:
+            # อ่านรูปจากกล้อง
+            image = Image.open(camera_input)
+            image_array = np.array(image)
+            
+            # แปลงจาก RGB เป็น BGR สำหรับ OpenCV
+            if len(image_array.shape) == 3:
+                if image_array.shape[2] == 4:  # RGBA
+                    image_bgr = cv2.cvtColor(image_array, cv2.COLOR_RGBA2BGR)
+                else:  # RGB
+                    image_bgr = cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
+            else:
+                image_bgr = image_array
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("Captured Image")
+                st.image(image, use_column_width=True)
+            
+            with st.spinner('🔍 Detecting...'):
+                result_image, results, num_faces = detect_mask(image_bgr.copy(), threshold)
+            
+            with col2:
+                st.subheader("Detection Result")
+                st.image(cv2.cvtColor(result_image, cv2.COLOR_BGR2RGB), use_column_width=True)
+            
+            # บันทึกประวัติ
+            timestamp = datetime.now()
+            with_mask = sum(1 for r in results if r['has_mask'])
+            without_mask = num_faces - with_mask
+            
+            st.session_state.detection_history.append({
+                'timestamp': timestamp,
+                'total_faces': num_faces,
+                'with_mask': with_mask,
+                'without_mask': without_mask,
+                'method': 'Camera'
+            })
+            
+            # แสดงสถิติ
+            st.markdown("---")
+            st.subheader("📊 Detection Summary")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("👥 Total Faces", num_faces)
+            
+            with col2:
+                st.metric("✅ With Mask", with_mask)
+            
+            with col3:
+                st.metric("❌ Without Mask", without_mask)
+            
+            with col4:
+                if num_faces > 0:
+                    compliance = (with_mask / num_faces) * 100
+                    st.metric("📈 Compliance", f"{compliance:.1f}%")
+            
+            if without_mask > 0:
+                st.error("⚠️ Warning: People without masks detected!")
+            elif num_faces > 0:
+                st.success("✅ All people are wearing masks!")
 
 # ===== PAGE: REPORTS =====
 else:
