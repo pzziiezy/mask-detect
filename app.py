@@ -99,7 +99,7 @@ def detect_mask(image, threshold=0.3):
 
 # Real-time Camera HTML Component
 def realtime_camera_component():
-    html_code = f"""
+    html_code = """
     <!DOCTYPE html>
     <html>
     <head>
