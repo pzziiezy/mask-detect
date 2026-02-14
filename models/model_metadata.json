@@ -1,0 +1,9 @@
+﻿{
+  "class_indices": {
+    "with_mask": 0,
+    "without_mask": 1
+  },
+  "positive_label": "without_mask",
+  "mask_threshold": 0.5,
+  "img_size": 224
+}
