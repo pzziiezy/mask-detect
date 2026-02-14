@@ -7,8 +7,6 @@ from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 from PIL import Image
-import base64
-import io
 
 # ตั้งค่าหน้าเว็บ
 st.set_page_config(
@@ -20,21 +18,27 @@ st.set_page_config(
 # Initialize session state
 if 'detection_history' not in st.session_state:
     st.session_state.detection_history = []
-if 'frame_count' not in st.session_state:
-    st.session_state.frame_count = 0
 
 # โหลดโมเดล
 @st.cache_resource
 def load_model():
     try:
-        return keras.models.load_model('models/mask_detector_vgg16.h5')
+        # ลอง VGG16 ก่อน
+        model = keras.models.load_model('models/mask_detector_vgg16.h5')
+        return model, 224  # VGG16 ใช้ 224x224
     except:
-        # ถ้าไม่มี VGG16 ใช้โมเดลเก่า
-        return keras.models.load_model('models/mask_detector.h5')
+        try:
+            # ถ้าไม่มี ใช้โมเดลเดิม
+            model = keras.models.load_model('models/mask_detector.h5')
+            return model, 128  # CNN ใช้ 128x128
+        except Exception as e:
+            st.error(f"Cannot load model: {e}")
+            return None, None
 
-model = load_model()
+model, IMG_SIZE = load_model()
 
 if model is None:
+    st.error("❌ ไม่สามารถโหลดโมเดลได้ กรุณาตรวจสอบไฟล์โมเดล")
     st.stop()
 
 try:
@@ -42,6 +46,9 @@ try:
 except Exception as e:
     st.error(f"Cannot load face detector: {e}")
     st.stop()
+
+# ตรวจสอบว่าใช้โมเดลไหน
+model_type = "VGG16" if IMG_SIZE == 224 else "Custom CNN"
 
 # Sidebar Navigation
 st.sidebar.title("🧭 Navigation")
@@ -53,241 +60,80 @@ threshold = st.sidebar.slider("Detection Threshold", 0.0, 1.0, 0.3, 0.05)
 
 st.sidebar.markdown("---")
 st.sidebar.info(
-    "**Model Accuracy:** 99.80%\n\n"
+    f"**Model:** {model_type}\n\n"
+    f"**Image Size:** {IMG_SIZE}x{IMG_SIZE}\n\n"
     "**Dataset:** 12K Images\n\n"
     "📱 **Mobile Compatible**"
 )
 
 # ฟังก์ชันตรวจจับ
-def detect_mask(image, threshold=0.75):
-    IMG_SIZE = 224
+def detect_mask(image, threshold=0.5):
     labels = ['❌ No Mask', '✅ With Mask']
     colors = [(255, 0, 0), (0, 255, 0)]
     
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+    # ตรวจสอบ input image
+    if image is None or image.size == 0:
+        return image, [], 0
+    
+    try:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+    except Exception as e:
+        st.error(f"Face detection error: {e}")
+        return image, [], 0
     
     results = []
     
     for (x, y, w, h) in faces:
-        face_img = image[y:y+h, x:x+w]
-        face_img = cv2.resize(face_img, (IMG_SIZE, IMG_SIZE))
-        face_img = face_img / 255.0
-        face_img = np.expand_dims(face_img, axis=0)
-        
-        prediction = model.predict(face_img, verbose=0)[0][0]
-        label_idx = 1 if prediction > threshold else 0
-        label = labels[label_idx]
-        confidence = prediction if label_idx == 1 else (1 - prediction)
-        color = colors[label_idx]
-        
-        cv2.rectangle(image, (x, y), (x+w, y+h), color, 3)
-        text = f"{label}: {confidence*100:.1f}%"
-        
-        (text_width, text_height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
-        cv2.rectangle(image, (x, y-35), (x + text_width + 10, y), color, -1)
-        cv2.putText(image, text, (x+5, y-10), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-        
-        results.append({
-            'label': label,
-            'confidence': confidence,
-            'has_mask': label_idx == 1
-        })
+        try:
+            # ขยายกรอบหน้าเล็กน้อย
+            padding = 20
+            y1 = max(0, y - padding)
+            y2 = min(image.shape[0], y + h + padding)
+            x1 = max(0, x - padding)
+            x2 = min(image.shape[1], x + w + padding)
+            
+            face_img = image[y1:y2, x1:x2]
+            
+            if face_img.size == 0:
+                continue
+            
+            # Resize
+            face_img = cv2.resize(face_img, (IMG_SIZE, IMG_SIZE))
+            
+            # Normalize - แก้ตรงนี้
+            face_img = face_img.astype('float32') / 255.0
+            
+            # เพิ่มมิติ
+            face_img = np.expand_dims(face_img, axis=0)
+            
+            # Predict
+            prediction = model.predict(face_img, verbose=0)[0][0]
+            label_idx = 1 if prediction > threshold else 0
+            label = labels[label_idx]
+            confidence = prediction if label_idx == 1 else (1 - prediction)
+            color = colors[label_idx]
+            
+            # วาดกรอบ
+            cv2.rectangle(image, (x, y), (x+w, y+h), color, 3)
+            text = f"{label}: {confidence*100:.1f}%"
+            
+            (text_width, text_height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
+            cv2.rectangle(image, (x, y-35), (x + text_width + 10, y), color, -1)
+            cv2.putText(image, text, (x+5, y-10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+            
+            results.append({
+                'label': label,
+                'confidence': confidence,
+                'has_mask': label_idx == 1
+            })
+            
+        except Exception as e:
+            # ข้ามใบหน้าที่มีปัญหา
+            continue
     
     return image, results, len(faces)
-
-# Real-time Camera HTML Component
-def realtime_camera_component():
-    html_code = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            .video-container {{
-                position: relative;
-                max-width: 100%;
-                margin: 0 auto;
-            }}
-            #video {{
-                width: 100%;
-                max-width: 640px;
-                border: 3px solid #4CAF50;
-                border-radius: 10px;
-                display: block;
-                margin: 0 auto;
-            }}
-            .controls {{
-                text-align: center;
-                margin: 20px 0;
-            }}
-            .btn {{
-                background-color: #4CAF50;
-                color: white;
-                padding: 12px 24px;
-                font-size: 16px;
-                margin: 5px;
-                cursor: pointer;
-                border: none;
-                border-radius: 8px;
-                transition: 0.3s;
-            }}
-            .btn:hover {{
-                background-color: #45a049;
-            }}
-            .btn-stop {{
-                background-color: #f44336;
-            }}
-            .btn-stop:hover {{
-                background-color: #da190b;
-            }}
-            .stats {{
-                text-align: center;
-                margin: 15px 0;
-                font-size: 18px;
-                font-weight: bold;
-            }}
-            .status {{
-                padding: 10px;
-                border-radius: 5px;
-                margin: 10px auto;
-                max-width: 640px;
-            }}
-            .status-good {{
-                background-color: #d4edda;
-                color: #155724;
-            }}
-            .status-warning {{
-                background-color: #fff3cd;
-                color: #856404;
-            }}
-            .status-danger {{
-                background-color: #f8d7da;
-                color: #721c24;
-            }}
-            canvas {{
-                display: none;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="video-container">
-            <video id="video" autoplay playsinline></video>
-            <canvas id="canvas"></canvas>
-        </div>
-        
-        <div class="controls">
-            <button class="btn" id="startBtn" onclick="startCamera()">📹 Start Detection</button>
-            <button class="btn btn-stop" id="stopBtn" onclick="stopCamera()" style="display:none;">⏹️ Stop</button>
-        </div>
-        
-        <div id="status" class="status" style="display:none;"></div>
-        
-        <script>
-            let stream = null;
-            let isRunning = false;
-            let intervalId = null;
-            const video = document.getElementById('video');
-            const canvas = document.getElementById('canvas');
-            const ctx = canvas.getContext('2d');
-            const statusDiv = document.getElementById('status');
-            const startBtn = document.getElementById('startBtn');
-            const stopBtn = document.getElementById('stopBtn');
-            
-            async function startCamera() {{
-                try {{
-                    stream = await navigator.mediaDevices.getUserMedia({{ 
-                        video: {{ 
-                            facingMode: 'user',
-                            width: {{ ideal: 640 }},
-                            height: {{ ideal: 480 }}
-                        }} 
-                    }});
-                    
-                    video.srcObject = stream;
-                    await video.play();
-                    
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    
-                    isRunning = true;
-                    startBtn.style.display = 'none';
-                    stopBtn.style.display = 'inline-block';
-                    statusDiv.style.display = 'block';
-                    
-                    // เริ่ม capture frames ทุก 500ms
-                    intervalId = setInterval(captureAndSend, 500);
-                    
-                }} catch (error) {{
-                    alert('❌ Cannot access camera: ' + error.message);
-                }}
-            }}
-            
-            function captureAndSend() {{
-                if (!isRunning) return;
-                
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const imageData = canvas.toDataURL('image/jpeg', 0.8);
-                
-                // ส่งไปยัง Streamlit
-                window.parent.postMessage({{
-                    isStreamlitMessage: true,
-                    type: 'streamlit:setComponentValue',
-                    key: 'realtime_camera',
-                    value: imageData
-                }}, '*');
-            }}
-            
-            function stopCamera() {{
-                isRunning = false;
-                
-                if (intervalId) {{
-                    clearInterval(intervalId);
-                    intervalId = null;
-                }}
-                
-                if (stream) {{
-                    stream.getTracks().forEach(track => track.stop());
-                    video.srcObject = null;
-                    stream = null;
-                }}
-                
-                startBtn.style.display = 'inline-block';
-                stopBtn.style.display = 'none';
-                statusDiv.style.display = 'none';
-            }}
-            
-            // รับข้อมูลจาก Streamlit
-            window.addEventListener('message', function(event) {{
-                if (event.data.type === 'detection_result') {{
-                    const result = event.data.data;
-                    updateStatus(result);
-                }}
-            }});
-            
-            function updateStatus(result) {
-    if (!result) return;
-    
-    let statusClass = 'status-good';
-    let statusText = '✅ All wearing masks!';
-    
-    if (result.without_mask > 0) {
-        statusClass = 'status-danger';
-        statusText = `⚠️ ${result.without_mask} person(s) without mask detected!`;
-    } else if (result.total_faces === 0) {
-        statusClass = 'status-warning';
-        statusText = '👤 No faces detected';
-    }
-    
-    statusDiv.className = 'status ' + statusClass;
-    statusDiv.innerHTML = statusText + `<br>👥 Total: ${result.total_faces} | ✅ With Mask: ${result.with_mask}`;
-}
-        </script>
-    </body>
-    </html>
-    """
-    
-    return st.components.v1.html(html_code, height=700, scrolling=False)
 
 # ===== PAGE: DETECTION =====
 if page == "🏠 Detection":
@@ -296,29 +142,34 @@ if page == "🏠 Detection":
     
     # คำแนะนำการใช้งาน
     with st.expander("ℹ️ วิธีการใช้งาน", expanded=False):
-        st.markdown("""
+        st.markdown(f"""
         ### 📖 คู่มือการใช้งาน
+        
+        **🤖 โมเดลที่ใช้:** {model_type}
         
         #### 📷 **โหมดอัปโหลดรูป:**
         - อัปโหลดรูปภาพเพื่อตรวจจับ
+        - รองรับไฟล์: JPG, JPEG, PNG
         
-        #### 🎥 **โหมด Real-time Detection:**
-        - คลิก "Start Detection" เพื่อเปิดกล้อง
-        - ระบบจะตรวจจับอัตโนมัติทุก 0.5 วินาที
-        - ดูผลลัพธ์แบบเรียลไทม์ใต้วิดีโอ
-        - **ใช้งานได้บน Mobile & Desktop!**
+        #### 📸 **โหมดถ่ายรูป (Mobile & Desktop):**
+        - คลิก "Take a photo" เพื่อเปิดกล้อง
+        - ถ่ายรูปแล้วรอผลลัพธ์
+        - **ใช้งานได้บนมือถือ!**
         
         #### ⚙️ **การตั้งค่า:**
-        - ปรับ Detection Threshold ที่แถบด้านซ้าย
+        - **Detection Threshold**: ปรับความแม่นยำ
+          - ต่ำ (0.2-0.3) = ตรวจจับหน้ากากง่ายขึ้น
+          - สูง (0.5-0.7) = ตรวจจับหน้ากากเข้มงวดขึ้น
         
         #### 💡 **เคล็ดลับ:**
         - แสงสว่างดี = ตรวจจับแม่นยำขึ้น
         - หน้าตรงกล้อง = ตรวจจับง่ายขึ้น
+        - {model_type} ทำงานได้ดีกับหน้าเอียงและแสงน้อย
         """)
     
     detection_method = st.radio(
         "Choose Detection Method:",
-        ["📷 Upload Image", "🎥 Real-time Camera"],
+        ["📷 Upload Image", "📸 Take Photo"],
         horizontal=True
     )
     
@@ -336,14 +187,14 @@ if page == "🏠 Detection":
             
             with col1:
                 st.subheader("Original Image")
-                st.image(cv2.cvtColor(image, cv2.COLOR_BGR2RGB), use_column_width=True)
+                st.image(cv2.cvtColor(image, cv2.COLOR_BGR2RGB), use_container_width=True)
             
             with st.spinner('🔍 Detecting...'):
                 result_image, results, num_faces = detect_mask(image.copy(), threshold)
             
             with col2:
                 st.subheader("Detection Result")
-                st.image(cv2.cvtColor(result_image, cv2.COLOR_BGR2RGB), use_column_width=True)
+                st.image(cv2.cvtColor(result_image, cv2.COLOR_BGR2RGB), use_container_width=True)
             
             # บันทึกประวัติ
             timestamp = datetime.now()
@@ -383,69 +234,78 @@ if page == "🏠 Detection":
             elif num_faces > 0:
                 st.success("✅ All people are wearing masks!")
     
-    # ===== Real-time Camera Mode =====
+    # ===== Camera Mode =====
     else:
-        st.header("🎥 Real-time Detection")
+        st.header("📸 Camera Detection")
+        st.info("📱 **Works on Mobile & Desktop!** Click the button below to take a photo")
         
-        st.info("""
-        📱 **Works on Mobile (iOS/Android) & Desktop!**
+        # Camera Component
+        camera_input = st.camera_input("Take a photo", key="camera")
         
-        - Click "Start Detection" to begin
-        - Detection updates every 0.5 seconds
-        - Results shown below video
-        """)
-        
-        # Real-time camera component
-        camera_data = realtime_camera_component()
-        
-        # ประมวลผลข้อมูลจากกล้อง
-        if camera_data:
-            try:
-                # Decode base64 image
-                image_data = camera_data.split(',')[1]
-                image_bytes = base64.b64decode(image_data)
-                image = Image.open(io.BytesIO(image_bytes))
-                image_array = np.array(image)
-                
-                # แปลงเป็น BGR
-                if len(image_array.shape) == 3:
+        if camera_input is not None:
+            # อ่านรูปจากกล้อง
+            image = Image.open(camera_input)
+            image_array = np.array(image)
+            
+            # แปลงจาก RGB เป็น BGR สำหรับ OpenCV
+            if len(image_array.shape) == 3:
+                if image_array.shape[2] == 4:  # RGBA
+                    image_bgr = cv2.cvtColor(image_array, cv2.COLOR_RGBA2BGR)
+                else:  # RGB
                     image_bgr = cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
-                else:
-                    image_bgr = image_array
-                
-                # ตรวจจับ
-                _, results, num_faces = detect_mask(image_bgr, threshold)
-                
-                with_mask = sum(1 for r in results if r['has_mask'])
-                without_mask = num_faces - with_mask
-                
-                # ส่งผลกลับไปยัง JavaScript
-                st.write(f"""
-                <script>
-                    window.parent.postMessage({{
-                        type: 'detection_result',
-                        data: {{
-                            total_faces: {num_faces},
-                            with_mask: {with_mask},
-                            without_mask: {without_mask}
-                        }}
-                    }}, '*');
-                </script>
-                """, unsafe_allow_html=True)
-                
-                # บันทึกประวัติทุก 10 frames
-                st.session_state.frame_count += 1
-                if st.session_state.frame_count % 10 == 0 and num_faces > 0:
-                    st.session_state.detection_history.append({
-                        'timestamp': datetime.now(),
-                        'total_faces': num_faces,
-                        'with_mask': with_mask,
-                        'without_mask': without_mask,
-                        'method': 'Real-time Camera'
-                    })
-                
-            except Exception as e:
-                pass  # ข้ามข้อผิดพลาดเพื่อให้ stream ไหลต่อ
+            else:
+                image_bgr = cv2.cvtColor(image_array, cv2.COLOR_GRAY2BGR)
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("Captured Image")
+                st.image(image, use_container_width=True)
+            
+            with st.spinner('🔍 Detecting...'):
+                result_image, results, num_faces = detect_mask(image_bgr.copy(), threshold)
+            
+            with col2:
+                st.subheader("Detection Result")
+                st.image(cv2.cvtColor(result_image, cv2.COLOR_BGR2RGB), use_container_width=True)
+            
+            # บันทึกประวัติ
+            timestamp = datetime.now()
+            with_mask = sum(1 for r in results if r['has_mask'])
+            without_mask = num_faces - with_mask
+            
+            st.session_state.detection_history.append({
+                'timestamp': timestamp,
+                'total_faces': num_faces,
+                'with_mask': with_mask,
+                'without_mask': without_mask,
+                'method': 'Camera'
+            })
+            
+            # แสดงสถิติ
+            st.markdown("---")
+            st.subheader("📊 Detection Summary")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("👥 Total Faces", num_faces)
+            
+            with col2:
+                st.metric("✅ With Mask", with_mask)
+            
+            with col3:
+                st.metric("❌ Without Mask", without_mask)
+            
+            with col4:
+                if num_faces > 0:
+                    compliance = (with_mask / num_faces) * 100
+                    st.metric("📈 Compliance", f"{compliance:.1f}%")
+            
+            if without_mask > 0:
+                st.error("⚠️ Warning: People without masks detected!")
+            elif num_faces > 0:
+                st.success("✅ All people are wearing masks!")
 
 # ===== PAGE: REPORTS =====
 else:
@@ -503,6 +363,27 @@ else:
         
         st.markdown("---")
         
+        # กราฟแท่ง
+        st.subheader("📊 Detection Breakdown")
+        
+        df_melted = df[['timestamp', 'with_mask', 'without_mask']].melt(
+            id_vars='timestamp', 
+            value_vars=['with_mask', 'without_mask'],
+            var_name='Status', 
+            value_name='Count'
+        )
+        df_melted['Status'] = df_melted['Status'].map({
+            'with_mask': 'With Mask',
+            'without_mask': 'Without Mask'
+        })
+        
+        fig = px.bar(df_melted, x='timestamp', y='Count', color='Status',
+                     color_discrete_map={'With Mask': '#00cc96', 'Without Mask': '#ef553b'},
+                     title='Mask Detection Over Time')
+        st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("---")
+        
         # ตารางข้อมูล
         st.subheader("📋 Detection History")
         
@@ -516,11 +397,10 @@ else:
             'method': 'Method'
         })
         
-        st.dataframe(df_display, use_column_width=True, height=400)
+        st.dataframe(df_display, use_container_width=True, height=400)
         
         # ปุ่มล้างข้อมูล
         st.markdown("---")
         if st.button("🗑️ Clear All History", type="secondary"):
             st.session_state.detection_history = []
-            st.session_state.frame_count = 0
             st.rerun()
