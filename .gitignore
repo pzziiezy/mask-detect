@@ -220,3 +220,5 @@ archive.zip
 # OS
 .DS_Store
 Thumbs.db
+
+!models/mask_detector_vgg16.h5
