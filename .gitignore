@@ -211,7 +211,6 @@ __marimo__/
 __pycache__/
 venv/
 .venv/
-!models/mask_detector.h5
 
 # Data folders (ไม่ upload รูปภาพ)
 data/
@@ -220,5 +219,3 @@ archive.zip
 # OS
 .DS_Store
 Thumbs.db
-
-!models/mask_detector_vgg16.h5
