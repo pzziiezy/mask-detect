@@ -27,10 +27,10 @@ if 'frame_count' not in st.session_state:
 @st.cache_resource
 def load_model():
     try:
+        return keras.models.load_model('models/mask_detector_vgg16.h5')
+    except:
+        # ถ้าไม่มี VGG16 ใช้โมเดลเก่า
         return keras.models.load_model('models/mask_detector.h5')
-    except Exception as e:
-        st.error(f"Cannot load model: {e}")
-        return None
 
 model = load_model()
 
@@ -59,8 +59,8 @@ st.sidebar.info(
 )
 
 # ฟังก์ชันตรวจจับ
-def detect_mask(image, threshold=0.3):
-    IMG_SIZE = 128
+def detect_mask(image, threshold=0.75):
+    IMG_SIZE = 224
     labels = ['❌ No Mask', '✅ With Mask']
     colors = [(255, 0, 0), (0, 255, 0)]
     
