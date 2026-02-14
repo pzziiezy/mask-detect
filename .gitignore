@@ -211,7 +211,6 @@ __marimo__/
 __pycache__/
 venv/
 .venv/
-*.h5
 !models/mask_detector.h5
 
 # Data folders (ไม่ upload รูปภาพ)
