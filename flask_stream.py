@@ -1458,9 +1458,11 @@ def detect_upload():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/stats')
-def get_stats():
-    return jsonify(stats)
+@app.route('/health')
+def health():
+    return jsonify({'status': 'healthy', 'model_loaded': MODEL_LOADED}), 200
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
