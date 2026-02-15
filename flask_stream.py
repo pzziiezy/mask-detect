@@ -9,6 +9,36 @@ import json
 from datetime import datetime
 from collections import deque
 import os
+import requests
+
+# ดาวน์โหลดโมเดลจาก Google Drive
+def download_model_from_gdrive(file_id, destination):
+    if os.path.exists(destination):
+        print(f"✓ Model already exists: {destination}")
+        return
+    
+    print(f"Downloading model from Google Drive...")
+    URL = f"https://drive.google.com/uc?export=download&id={file_id}"
+    
+    session = requests.Session()
+    response = session.get(URL, stream=True)
+    
+    # บันทึกไฟล์
+    os.makedirs(os.path.dirname(destination), exist_ok=True)
+    with open(destination, 'wb') as f:
+        for chunk in response.iter_content(32768):
+            if chunk:
+                f.write(chunk)
+    
+    print(f"✓ Model downloaded: {destination}")
+
+# ใส่ Google Drive File ID ของคุณที่นี่
+GDRIVE_FILE_ID = "1wKuD0D_Bz_lv8Mryyt37-r3Aph33aK5l"
+MODEL_PATH = 'models/mask_detector_production.h5'
+
+# ดาวน์โหลดก่อนโหลดโมเดล
+download_model_from_gdrive(GDRIVE_FILE_ID, MODEL_PATH)
+
 
 app = Flask(__name__)
 
