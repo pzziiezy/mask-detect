@@ -15,17 +15,26 @@ app = Flask(__name__)
 # โหลดโมเดล
 ACTIVE_MODEL_PATH = None
 try:
+    # ลำดับความสำคัญ: โมเดลใหม่ → VGG → CNN
+    new_model_path = 'models/mask_detector_production.h5'
     vgg_model_path = 'models/mask_detector_vgg16.h5'
     cnn_model_path = 'models/mask_detector.h5'
 
-    if os.path.exists(vgg_model_path):
+    if os.path.exists(new_model_path):
+        ACTIVE_MODEL_PATH = new_model_path
+        model = keras.models.load_model(new_model_path)
+        IMG_SIZE = 224
+        print(f"✓ Loaded NEW model: {new_model_path}")
+    elif os.path.exists(vgg_model_path):
         ACTIVE_MODEL_PATH = vgg_model_path
         model = keras.models.load_model(vgg_model_path)
         IMG_SIZE = 224
+        print(f"✓ Loaded VGG model: {vgg_model_path}")
     else:
         ACTIVE_MODEL_PATH = cnn_model_path
         model = keras.models.load_model(cnn_model_path)
         IMG_SIZE = 128
+        print(f"✓ Loaded CNN model: {cnn_model_path}")
 
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
     profile_face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_profileface.xml')
@@ -190,11 +199,11 @@ def detect_mask_advanced_legacy(image, threshold=0.65, min_confidence=0.75):
 def enhance_low_light(image):
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
     l_channel, a_channel, b_channel = cv2.split(lab)
-    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))  # เพิ่ม clipLimit
     l_channel = clahe.apply(l_channel)
     enhanced_lab = cv2.merge((l_channel, a_channel, b_channel))
     enhanced_bgr = cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2BGR)
-    return cv2.convertScaleAbs(enhanced_bgr, alpha=1.1, beta=5)
+    return cv2.convertScaleAbs(enhanced_bgr, alpha=1.2, beta=10)  # เพิ่มความสว่าง
 
 
 def iou(box_a, box_b):
@@ -209,7 +218,7 @@ def iou(box_a, box_b):
     return (inter / union) if union > 0 else 0.0
 
 
-def deduplicate_faces(boxes, iou_threshold=0.35):
+def deduplicate_faces(boxes, iou_threshold=0.30):
     if not boxes:
         return []
     boxes = sorted(boxes, key=lambda b: b[2] * b[3], reverse=True)
@@ -225,7 +234,7 @@ def detect_faces_robust(image):
     enhanced = enhance_low_light(image)
     gray = cv2.cvtColor(enhanced, cv2.COLOR_BGR2GRAY)
     all_faces = []
-    angles = [0, -15, 15]
+    angles = [0, -10, 10, -20, 20]
     center = (w // 2, h // 2)
 
     for angle in angles:
@@ -239,11 +248,11 @@ def detect_faces_robust(image):
             )
             inv_m = cv2.invertAffineTransform(m)
 
-        frontal = face_cascade.detectMultiScale(rotated, scaleFactor=1.1, minNeighbors=4, minSize=(40, 40))
+        frontal = face_cascade.detectMultiScale(rotated, scaleFactor=1.05, minNeighbors=5, minSize=(50, 50))
         profiles = []
         if profile_face_cascade is not None and not profile_face_cascade.empty():
             profiles = profile_face_cascade.detectMultiScale(
-                rotated, scaleFactor=1.1, minNeighbors=4, minSize=(40, 40)
+                rotated, scaleFactor=1.05, minNeighbors=5, minSize=(50, 50)
             )
 
         for source in (frontal, profiles):
@@ -1387,7 +1396,7 @@ def detect():
         else:
             image_bgr = cv2.cvtColor(image_array, cv2.COLOR_GRAY2BGR)
         
-        _, results = detect_mask_advanced(image_bgr, threshold=None, min_confidence=0.60)
+        _, results = detect_mask_advanced(image_bgr, threshold=None, min_confidence=0.75)
         
         stats['total_scans'] += len(results)
         for r in results:

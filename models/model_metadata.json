@@ -1,9 +1,49 @@
-﻿{
+{
+  "model_architecture": "MobileNetV2",
+  "model_path": "models\\mask_detector_production.h5",
+  "img_size": 224,
   "class_indices": {
     "with_mask": 0,
     "without_mask": 1
   },
-  "positive_label": "without_mask",
-  "mask_threshold": 0.5,
-  "img_size": 224
+  "optimal_threshold": 0.3999999999999998,
+  "train_counts": {
+    "with_mask": 5000,
+    "without_mask": 5000
+  },
+  "val_counts": {
+    "with_mask": 400,
+    "without_mask": 400
+  },
+  "test_counts": {
+    "with_mask": 483,
+    "without_mask": 509
+  },
+  "test_results": {
+    "with_mask": {
+      "precision": 0.9999999999979297,
+      "recall": 0.9999999999979297,
+      "f1_score": 0.9999999994979296,
+      "accuracy": 1.0,
+      "support": 483
+    },
+    "without_mask": {
+      "precision": 0.9999999999980353,
+      "recall": 0.9999999999980353,
+      "f1_score": 0.9999999994980353,
+      "accuracy": 1.0,
+      "support": 509
+    },
+    "overall_accuracy": 1.0
+  },
+  "training_config": {
+    "batch_size": 32,
+    "epochs_phase1": 30,
+    "epochs_phase2": 20,
+    "initial_lr": 0.001,
+    "fine_tune_lr": 1e-05,
+    "dropout_rate": 0.3,
+    "l2_weight": 1e-05,
+    "label_smoothing": 0.1
+  }
 }
