@@ -7,7 +7,10 @@
       "Bash(set:*)",
       "Bash(cmd /c \"chcp 65001 >nul && set PYTHONIOENCODING=utf-8 && py -3.12 d:\\\\mask-detection\\\\train_model.py\")",
       "Bash($env:PYTHONIOENCODING=\"utf-8\")",
-      "Bash(PYTHONIOENCODING=utf-8 py:*)"
+      "Bash(PYTHONIOENCODING=utf-8 py:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(PYTHONIOENCODING=utf-8 python:*)"
     ]
   }
 }
