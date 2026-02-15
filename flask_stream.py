@@ -9,36 +9,46 @@ import json
 from datetime import datetime
 from collections import deque
 import os
-import requests
+import gdown
 
 # ดาวน์โหลดโมเดลจาก Google Drive
 def download_model_from_gdrive(file_id, destination):
+    """ดาวน์โหลดโมเดลจาก Google Drive"""
     if os.path.exists(destination):
         print(f"✓ Model already exists: {destination}")
-        return
+        return True
     
-    print(f"Downloading model from Google Drive...")
-    URL = f"https://drive.google.com/uc?export=download&id={file_id}"
+    print(f"📥 Downloading model from Google Drive...")
     
-    session = requests.Session()
-    response = session.get(URL, stream=True)
-    
-    # บันทึกไฟล์
-    os.makedirs(os.path.dirname(destination), exist_ok=True)
-    with open(destination, 'wb') as f:
-        for chunk in response.iter_content(32768):
-            if chunk:
-                f.write(chunk)
-    
-    print(f"✓ Model downloaded: {destination}")
+    try:
+        url = f"https://drive.google.com/uc?id={file_id}"
+        os.makedirs(os.path.dirname(destination), exist_ok=True)
+        gdown.download(url, destination, quiet=False)
+        
+        if os.path.exists(destination):
+            file_size = os.path.getsize(destination) / (1024 * 1024)
+            print(f"✓ Model downloaded: {file_size:.1f} MB")
+            return True
+        else:
+            print(f"❌ Download failed")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
-# ใส่ Google Drive File ID ของคุณที่นี่
+# Google Drive File ID จาก link ของคุณ
 GDRIVE_FILE_ID = "1wKuD0D_Bz_lv8Mryyt37-r3Aph33aK5l"
 MODEL_PATH = 'models/mask_detector_production.h5'
 
-# ดาวน์โหลดก่อนโหลดโมเดล
-download_model_from_gdrive(GDRIVE_FILE_ID, MODEL_PATH)
-
+# ดาวน์โหลดโมเดล
+print("="*60)
+success = download_model_from_gdrive(GDRIVE_FILE_ID, MODEL_PATH)
+if not success and not os.path.exists(MODEL_PATH):
+    print("⚠️ WARNING: Failed to download model")
+print("="*60)
 
 app = Flask(__name__)
 
